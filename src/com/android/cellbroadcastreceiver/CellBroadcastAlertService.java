@@ -443,7 +443,7 @@ public class CellBroadcastAlertService extends Service {
         if (CellBroadcastChannelManager.checkCellBroadcastChannelRange(subId,
                 channel, R.array.cmas_presidential_alerts_channels_range_strings, this)) {
             // always enabled
-            return true;
+            return emergencyAlertEnabled;
         }
         if (CellBroadcastChannelManager.checkCellBroadcastChannelRange(subId,
                 channel, R.array.cmas_alert_extreme_channels_range_strings, this)) {
@@ -482,7 +482,7 @@ public class CellBroadcastAlertService extends Service {
                     .getBoolean(CellBroadcastSettings.KEY_ENABLE_PUBLIC_SAFETY_MESSAGES,
                             true);
         }
-        return true;
+        return emergencyAlertEnabled;
     }
 
     /**
