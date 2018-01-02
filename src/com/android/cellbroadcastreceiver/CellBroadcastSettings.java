@@ -242,9 +242,7 @@ public class CellBroadcastSettings extends Activity {
                 }
                 // If allow alerts are disabled, we turn all sub-alerts off. If it's enabled, we
                 // leave them as they are.
-                if (!mEmergencyCheckBox.isChecked()) {
-                    setAlertsEnabled(false);
-                }
+                setAlertsEnabled(mEmergencyCheckBox.isChecked());
             } else {
                 preferenceScreen.removePreference(mEmergencyCheckBox);
             }

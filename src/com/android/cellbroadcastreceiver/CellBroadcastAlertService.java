@@ -473,11 +473,11 @@ public class CellBroadcastAlertService extends Service {
                                     .getBoolean(CellBroadcastSettings.KEY_ENABLE_CMAS_TEST_ALERTS,
                                             false);
                 default:
-                    return true;    // presidential-level CMAS alerts are always enabled
+                    return emergencyAlertEnabled;
             }
         }
 
-        return true;    // other broadcast messages are always enabled
+        return emergencyAlertEnabled;
     }
 
     /**
