@@ -435,7 +435,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                                 R.raw.etws_other_disaster);
                         break;
                     case ETWS_DEFAULT:
-                    case ETWS_TEST:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
                                 R.raw.etws_default);
                         break;
