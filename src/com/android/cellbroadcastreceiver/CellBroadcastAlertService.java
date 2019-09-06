@@ -36,6 +36,7 @@ import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
@@ -97,6 +98,12 @@ public class CellBroadcastAlertService extends Service {
      * treated as a duplicate.
      */
     private static final long DEFAULT_EXPIRATION_TIME = DAY_IN_MILLIS;
+
+    /**
+     * Key for accessing message filter from SystemProperties. For testing use.
+     */
+    private static final String MESSAGE_FILTER_PROPERTY_KEY =
+            "persist.cellbroadcast.message_filter";
 
     /**
      * Alert type
@@ -197,6 +204,14 @@ public class CellBroadcastAlertService extends Service {
     }
 
     /**
+     * Reset the duplicate detection map.
+     */
+    public static void resetMessageDuplicateDetection() {
+        Log.d(TAG, "Reset alert duplicate detection map.");
+        sMessagesMap.clear();
+    }
+
+    /**
      * Get the carrier specific message duplicate expiration time.
      *
      * @param subId Subscription index
@@ -253,6 +268,21 @@ public class CellBroadcastAlertService extends Service {
                 return false;
             }
         }
+
+        // Check for custom filtering
+        String messageFilters = SystemProperties.get(MESSAGE_FILTER_PROPERTY_KEY, "");
+        if (!TextUtils.isEmpty(messageFilters)) {
+            String[] filters = messageFilters.split(",");
+            for (String filter : filters) {
+                if (!TextUtils.isEmpty(filter)) {
+                    if (cbm.getMessageBody().toLowerCase().contains(filter)) {
+                        Log.i(TAG, "Skipped message due to filter: " + filter);
+                        return false;
+                    }
+                }
+            }
+        }
+
         return true;
     }
 
@@ -284,7 +314,9 @@ public class CellBroadcastAlertService extends Service {
 
         // Check if message body should be used for duplicate detection.
         boolean shouldCompareMessageBody =
-                getApplicationContext().getResources().getBoolean(R.bool.duplicate_compare_body);
+                CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(
+                                getApplicationContext())
+                        .getBoolean(R.bool.duplicate_compare_body);
 
         int hashCode = shouldCompareMessageBody ? message.getMessageBody().hashCode() : 0;
 
@@ -579,10 +611,13 @@ public class CellBroadcastAlertService extends Service {
         CellBroadcastChannelRange range = CellBroadcastChannelManager
                 .getCellBroadcastChannelRangeFromMessage(getApplicationContext(), message);
         audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_TONE_TYPE, alertType);
-        audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_VIBRATION_PATTERN_EXTRA,
-                (range != null) ? range.mVibrationPattern
-                        : getApplicationContext().getResources().getIntArray(
-                        R.array.default_vibration_pattern));
+        audioIntent.putExtra(
+                CellBroadcastAlertAudio.ALERT_AUDIO_VIBRATION_PATTERN_EXTRA,
+                (range != null)
+                        ? range.mVibrationPattern
+                        : CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(
+                                        getApplicationContext())
+                                .getIntArray(R.array.default_vibration_pattern));
 
         String messageBody = message.getMessageBody();
 
@@ -625,6 +660,7 @@ public class CellBroadcastAlertService extends Service {
     static void addToNotificationBar(CellBroadcastMessage message,
                                      ArrayList<CellBroadcastMessage> messageList, Context context,
                                      boolean fromSaveState) {
+        Resources res = CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context);
         int channelTitleId = CellBroadcastResources.getDialogTitleResource(context, message);
         CharSequence channelName = context.getText(channelTitleId);
         String messageBody = message.getMessageBody();
@@ -655,15 +691,16 @@ public class CellBroadcastAlertService extends Service {
         final String channelId = CellBroadcastChannelManager.isEmergencyMessage(context, message)
                 ? NOTIFICATION_CHANNEL_EMERGENCY_ALERTS : NOTIFICATION_CHANNEL_NON_EMERGENCY_ALERTS;
         // use default sound/vibration/lights for non-emergency broadcasts
-        Notification.Builder builder = new Notification.Builder(context, channelId)
-                .setSmallIcon(R.drawable.ic_warning_googred)
-                .setTicker(channelName)
-                .setWhen(System.currentTimeMillis())
-                .setCategory(Notification.CATEGORY_SYSTEM)
-                .setPriority(Notification.PRIORITY_HIGH)
-                .setColor(context.getResources().getColor(R.color.notification_color))
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setOngoing(message.isEmergencyAlertMessage());
+        Notification.Builder builder =
+                new Notification.Builder(context, channelId)
+                        .setSmallIcon(R.drawable.ic_warning_googred)
+                        .setTicker(channelName)
+                        .setWhen(System.currentTimeMillis())
+                        .setCategory(Notification.CATEGORY_SYSTEM)
+                        .setPriority(Notification.PRIORITY_HIGH)
+                        .setColor(res.getColor(R.color.notification_color))
+                        .setVisibility(Notification.VISIBILITY_PUBLIC)
+                        .setOngoing(message.isEmergencyAlertMessage());
 
         if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             builder.setDeleteIntent(pi);
@@ -697,7 +734,7 @@ public class CellBroadcastAlertService extends Service {
         // Alert Dialog, it will call this and override the emergency audio tone.
         if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)
                 && !CellBroadcastChannelManager.isEmergencyMessage(context, message)) {
-            if (context.getResources().getBoolean(R.bool.watch_enable_non_emergency_audio)) {
+            if (res.getBoolean(R.bool.watch_enable_non_emergency_audio)) {
                 // start audio/vibration/speech service for non emergency alerts
                 Intent audioIntent = new Intent(context, CellBroadcastAlertAudio.class);
                 audioIntent.setAction(CellBroadcastAlertAudio.ACTION_START_ALERT_AUDIO);

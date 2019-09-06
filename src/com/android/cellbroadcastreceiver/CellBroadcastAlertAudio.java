@@ -344,14 +344,18 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         // stop() checks to see if we are already playing.
         stop();
 
-        log("playAlertTone: alertType=" + alertType);
+        log("playAlertTone: alertType=" + alertType + ", mEnableVibrate=" + mEnableVibrate
+                + ", mEnableAudio=" + mEnableAudio + ", mUseFullVolume=" + mUseFullVolume);
+        Resources res =
+                CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(
+                        getApplicationContext());
 
         // Vibration duration in milliseconds
         long vibrateDuration = 0;
 
         // Get the alert tone duration. Negative tone duration value means we only play the tone
         // once, not repeat it.
-        int customAlertDuration = getResources().getInteger(R.integer.alert_duration);
+        int customAlertDuration = res.getInteger(R.integer.alert_duration);
 
         // Start the vibration first.
         if (mEnableVibrate) {
@@ -362,10 +366,13 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 vibrateDuration += patternArray[i];
             }
 
-            // Use the alarm channel so it can vibrate in DnD mode, unless alarms are
-            // specifically disabled in DnD.
             AudioAttributes.Builder attrBuilder = new AudioAttributes.Builder();
             attrBuilder.setUsage(AudioAttributes.USAGE_ALARM);
+            if (mUseFullVolume) {
+                // Set the flags to bypass DnD mode if the user enables use full volume option.
+                attrBuilder.setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY
+                        | AudioAttributes.FLAG_BYPASS_MUTE);
+            }
             AudioAttributes attr = attrBuilder.build();
             // If we only play the tone once, then we also play the vibration pattern once.
             int repeatIndex = (customAlertDuration < 0)
@@ -404,26 +411,21 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             }
 
             try {
-                log("Locale=" + getResources().getConfiguration().getLocales()
-                        + ", alertType=" + alertType);
+                log("Locale=" + res.getConfiguration().getLocales() + ", alertType=" + alertType);
 
                 // Load the tones based on type
                 switch (alertType) {
                     case ETWS_EARTHQUAKE:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_earthquake);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_earthquake);
                         break;
                     case ETWS_TSUNAMI:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_tsunami);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_tsunami);
                         break;
                     case OTHER:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_other_disaster);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_other_disaster);
                         break;
                     case ETWS_DEFAULT:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_default);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_default);
                         break;
                     case INFO:
                         // for non-emergency alerts, we are using system default notification sound.
@@ -435,8 +437,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     case TEST:
                     case DEFAULT:
                     default:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.default_tone);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.default_tone);
                 }
 
                 // Request audio focus (though we're going to play even if we don't get it)

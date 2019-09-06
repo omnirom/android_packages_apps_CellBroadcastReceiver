@@ -28,17 +28,17 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserManager;
 import android.provider.Settings;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceScreen;
-import android.support.v7.preference.TwoStatePreference;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.view.MenuItem;
 
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.TwoStatePreference;
 
 /**
  * Settings activity for the cell broadcast receiver.
@@ -276,8 +276,7 @@ public class CellBroadcastSettings extends Activity {
             boolean enableDevSettings = Settings.Global.getInt(getContext().getContentResolver(),
                     Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
 
-            Resources res = getResources();
-
+            Resources res = getResourcesForDefaultSmsSubscriptionId(getContext());
             initReminderIntervalList();
 
             boolean emergencyAlertOnOffOptionEnabled = isFeatureEnabled(getContext(),
@@ -424,11 +423,11 @@ public class CellBroadcastSettings extends Activity {
         }
 
         private void initReminderIntervalList() {
+            Resources res = getResourcesForDefaultSmsSubscriptionId(getContext());
 
             String[] activeValues =
-                    getResources().getStringArray(R.array.alert_reminder_interval_active_values);
-            String[] allEntries =
-                    getResources().getStringArray(R.array.alert_reminder_interval_entries);
+                    res.getStringArray(R.array.alert_reminder_interval_active_values);
+            String[] allEntries = res.getStringArray(R.array.alert_reminder_interval_entries);
             String[] newEntries = new String[activeValues.length];
 
             // Only add active interval to the list
@@ -517,5 +516,16 @@ public class CellBroadcastSettings extends Activity {
         }
 
         return defaultValue;
+    }
+
+    public static Resources getResourcesForDefaultSmsSubscriptionId(Context context) {
+        int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            subId = SubscriptionManager.getDefaultSubscriptionId();
+            if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                return context.getResources();
+            }
+        }
+        return SubscriptionManager.getResourcesForSubId(context, subId);
     }
 }
